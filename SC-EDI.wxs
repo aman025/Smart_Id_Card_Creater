@@ -1,0 +1,547 @@
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" 
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <!-- http://wixtoolset.org/documentation/manual/v3/xsd/wix/product.html -->
+  <Product Id="38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0" 
+           UpgradeCode="4ae058ff-ecf2-45a3-884b-f523666ef5e7"
+           Name = "Kumar and Das (Machine - MSI)"
+           Version="1.0.0.0"
+           Manufacturer="Aman Ranjan"
+           Language="1033">
+    <!-- Only run this installer on Windows 7 or up (or if it"s already installed, I guess) -->
+    <!-- <Condition Message="This application is only supported on Windows 7 or higher.">
+      <![CDATA[Installed OR (VersionNT >= 601)]]>
+    </Condition> -->
+    <!-- http://wixtoolset.org/documentation/manual/v3/xsd/wix/package.html -->
+    <Package InstallerVersion="405"
+             Compressed="yes"
+             Comments="Windows Installer Package"
+             Platform="x86"/>
+    <!-- This will hide our Uninstall entry in Apps & Features. We doing this so
+    we can write our own which we can better control. -->
+    <Property Id="ARPSYSTEMCOMPONENT" Value="1" />
+    <!-- While the MSI package is hidden in Apps & Features, it can still be queried
+    via PowerShell and other means. To differentiate we give the public entry a slightly
+    different name to make admins life easier.  -->
+    <Property Id="VisibleProductName" Value="Our Code World Desktop App (Machine)" />
+    <!-- Signals Single Package Authoring. This pacakge can pe installed perMachine
+    or perUser. The mode is determined by the property below. -->
+    <Property Id="ALLUSERS" Secure="yes" Value="2" />
+    <!-- Tells the package to install perUser or perMachine. In case of perUser, all
+    files will be redirected to the user profile and all registry entries to HKCU. -->
+    <Property Id="MSIINSTALLPERUSER" Secure="yes" Value="0" />
+    <!-- Overides the default install mode. It solves a problem where
+    individual packaged files that have the same version as in previous
+    installed App version will be deleted if the files are in use during
+    this upgrade. Unfortunately this causes an ICE 40 warning during linking. -->
+    <Property Id="REINSTALLMODE" Value="emus" />
+    <!-- Overrides the default reboot behavior if files are in use during the upgrade.
+     This way no unpxecpted reboot will happpen.-->
+    <Property Id="REBOOT" Value="ReallySuppress" />
+    <!-- A property that holds the intall path and is needed to delete all files on
+    uninstall, even if they are not wriiten as part of this MSI. The value comes from a 
+    registry we set on install.-->
+    <Property Id="INSTALLLEVEL" Value="2" />
+    <!-- Allows to customize the Windows user group that gets access rights on
+    the install folder in cas the auto-updater is installed. User that run the App
+    must be part of that user group to be able to auto-update. -->
+    <Property Id="UPDATERUSERGROUP" Value="Users" />
+    <!-- A property to define whether the auto-updater is enabled when the
+    feature gets installed. This way the update can be installed but also be disabled
+    by overwriting the default value.  -->
+    <Property Id="AUTOUPDATEENABLED" Value="1" />
+    <!-- Necessary registry search to find the install path which is used by the
+    PurgeOnUninstall action. Since this package can be installed perUser or perMachine,
+    we have to look in both places. First successful search wins. -->
+    <Property Id="INSTALLPATH">
+      <RegistrySearch Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq"
+                      Root="HKCU" 
+                      Type="raw"
+                      Id="INSTALLPATH_REGSEARCH_HKCU"
+                      Name="InstallPath"
+                      Win64="no"/>
+      <RegistrySearch Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq"
+                      Root="HKLM" 
+                      Type="raw"
+                      Id="INSTALLPATH_REGSEARCH_HKLM"
+                      Name="InstallPath"
+                      Win64="no"/>
+    </Property>
+    <!-- Lets change the product name depending on the perUser installMode. 
+    This way the user and admins can see in which scope the MSI was installed. -->
+    <SetProperty Action="SetVisibleProductName" Id="VisibleProductName" Sequence="both" Before="AppSearch"  Value="Our Code World Desktop App (User)">
+      <![CDATA[MSIINSTALLPERUSER = "1"]]>
+    </SetProperty>
+    <!-- Again we give thee MSI generaten entry a slightly different name to help 
+    differentiate between the public one and the invisible one. -->
+    <SetProperty Action="SetProductName" Id="ProductName" Sequence="both" Before="AppSearch"  Value="Our Code World Desktop App (User - MSI)">
+      <![CDATA[MSIINSTALLPERUSER = "1"]]>
+    </SetProperty>
+
+    <Media Id="1" Cabinet="product.cab" EmbedCab="yes"/>
+
+    <!-- Handle Updates -->
+    <Upgrade Id="4ae058ff-ecf2-45a3-884b-f523666ef5e7">
+      <UpgradeVersion OnlyDetect="no" Property="PREVIOUSFOUND"
+          Minimum="0.0.0" IncludeMinimum="yes"
+          Maximum="1.0.0.0" IncludeMaximum="yes" /> 
+    </Upgrade>
+
+    <InstallExecuteSequence>
+      <RemoveExistingProducts After="InstallInitialize" />
+    </InstallExecuteSequence>
+
+    <UI Id="UserInterface">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="FeatureTree" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg">NOT Installed</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="1">Installed</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">NOT Installed</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CustomizeDlg" Order="1">NOT Installed OR WixUI_InstallMode = "Change"</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="3">Installed AND PATCH</Publish>
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="ChangeButton" Event="NewDialog" Value="CustomizeDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg">1</Publish>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+
+
+    <!-- Step 2: Add files and directories -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+       <!-- Installation files to %PROGRAMFILES% -->
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="APPLICATIONROOTDIRECTORY" Name="Our Code World Desktop App">
+          <Directory Id="__c857e89c_0ab3_4176_ae77_e44f4e9a39fd" Name="app-1.0.0">
+            <Directory Id="_locales_3c1c7742_67c4_4403_a92d_e318f2aaa632" Name="locales">
+              <Component Id="_locales_am.pak_16ad6542_0a27_423d_acc0_bfdce856b6a4" Guid="c4de10ae-f5eb-47cd-b73c-da3723537d1c" Win64="no">
+                <File Name="am.pak" Id="_locales_am.pak_16ad6542_0a27_423d_acc0_bfdce856b6a4" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\am.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ar.pak_c7e72979_7512_4aee_b21f_531166dfd31d" Guid="4cc7a7d1-66c3-42c5-b814-bd11be22e5d0" Win64="no">
+                <File Name="ar.pak" Id="_locales_ar.pak_c7e72979_7512_4aee_b21f_531166dfd31d" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ar.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_bg.pak_f5d32382_21ae_4bb5_a62a_ca09893eb1ca" Guid="ae90a2a6-53a8-405a-b113-e0c8b6182436" Win64="no">
+                <File Name="bg.pak" Id="_locales_bg.pak_f5d32382_21ae_4bb5_a62a_ca09893eb1ca" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\bg.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_bn.pak_99dbe8a5_c6bd_424f_a36f_ab56585fdd50" Guid="cbdb2869-249e-412b-bcca-9bb47c40f1f7" Win64="no">
+                <File Name="bn.pak" Id="_locales_bn.pak_99dbe8a5_c6bd_424f_a36f_ab56585fdd50" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\bn.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ca.pak_cc50e59e_5cc9_4716_8cdf_b08845f68591" Guid="895e39b4-d334-4bdf-a3cf-23ca4727a9a1" Win64="no">
+                <File Name="ca.pak" Id="_locales_ca.pak_cc50e59e_5cc9_4716_8cdf_b08845f68591" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ca.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_cs.pak_a8388f5f_385a_4bf9_bde3_ca8d93e602e1" Guid="c51736b0-b663-4797-aa5e-52b3b855bb42" Win64="no">
+                <File Name="cs.pak" Id="_locales_cs.pak_a8388f5f_385a_4bf9_bde3_ca8d93e602e1" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\cs.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_da.pak_f90f2084_f2ef_41ad_822a_1b81b61c9030" Guid="76749d63-f2ac-455b-b902-71a4d340148b" Win64="no">
+                <File Name="da.pak" Id="_locales_da.pak_f90f2084_f2ef_41ad_822a_1b81b61c9030" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\da.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_de.pak_31d96dbe_0231_49a5_b5bd_3f4d495743a4" Guid="71799595-5a4d-437f-8cbe-f02d8d3fb05e" Win64="no">
+                <File Name="de.pak" Id="_locales_de.pak_31d96dbe_0231_49a5_b5bd_3f4d495743a4" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\de.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_el.pak_55a46617_e53e_41d6_bfb6_68d3022be655" Guid="47c1086a-7499-4f6e-ab99-7f09b10ddf7c" Win64="no">
+                <File Name="el.pak" Id="_locales_el.pak_55a46617_e53e_41d6_bfb6_68d3022be655" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\el.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_en_GB.pak_f0dd59ad_5800_4188_95f7_66681076e420" Guid="443d835d-d653-4a66-b44e-26d92266c3df" Win64="no">
+                <File Name="en-GB.pak" Id="_locales_en_GB.pak_f0dd59ad_5800_4188_95f7_66681076e420" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\en-GB.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_en_US.pak_3b4227e1_a6d8_4c4a_8a05_dee59ad5c270" Guid="530230b1-d73b-41f2-9caf-173cf41bedad" Win64="no">
+                <File Name="en-US.pak" Id="_locales_en_US.pak_3b4227e1_a6d8_4c4a_8a05_dee59ad5c270" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\en-US.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_es_419.pak_03ce4037_20d0_4010_b9c4_bfd4c76794c1" Guid="14065759-8607-4ad0-89fa-e9586086d624" Win64="no">
+                <File Name="es-419.pak" Id="_locales_es_419.pak_03ce4037_20d0_4010_b9c4_bfd4c76794c1" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\es-419.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_es.pak_ede04574_2964_4db8_bc4a_bea30293a911" Guid="f3a49bf4-e6aa-4152-bbbd-28d1209100ec" Win64="no">
+                <File Name="es.pak" Id="_locales_es.pak_ede04574_2964_4db8_bc4a_bea30293a911" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\es.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_et.pak_e3b3d319_4596_469c_ac91_25d78f744ecb" Guid="27cc81e1-473c-4e86-a353-b99a24aaf617" Win64="no">
+                <File Name="et.pak" Id="_locales_et.pak_e3b3d319_4596_469c_ac91_25d78f744ecb" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\et.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_fa.pak_05b23399_7d9d_4256_a40e_7f9c63352401" Guid="c036c77c-e44a-497e-8de2-de703dbc89ea" Win64="no">
+                <File Name="fa.pak" Id="_locales_fa.pak_05b23399_7d9d_4256_a40e_7f9c63352401" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\fa.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_fi.pak_8ad62581_cadc_4806_972d_71d1be8ce4b3" Guid="af721bfd-e77a-4071-9744-9d5f221672bf" Win64="no">
+                <File Name="fi.pak" Id="_locales_fi.pak_8ad62581_cadc_4806_972d_71d1be8ce4b3" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\fi.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_fil.pak_280f10a3_0344_4290_b786_2934cb2e7aef" Guid="7df90faf-a717-4758-ad63-4b856844cb1b" Win64="no">
+                <File Name="fil.pak" Id="_locales_fil.pak_280f10a3_0344_4290_b786_2934cb2e7aef" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\fil.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_fr.pak_eda7070d_dd5f_4327_bd74_19ea6a25a770" Guid="02df74bb-910a-4125-b77f-c5702fe62113" Win64="no">
+                <File Name="fr.pak" Id="_locales_fr.pak_eda7070d_dd5f_4327_bd74_19ea6a25a770" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\fr.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_gu.pak_419d8c03_923b_4cb9_9560_e2edf4c6799b" Guid="58716be4-501a-4f29-acd1-2672dbd62f05" Win64="no">
+                <File Name="gu.pak" Id="_locales_gu.pak_419d8c03_923b_4cb9_9560_e2edf4c6799b" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\gu.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_he.pak_a8bd7d8a_417b_48bd_b3cb_23f6af85e8ea" Guid="4a9d2892-502f-4da6-847d-424db5221a11" Win64="no">
+                <File Name="he.pak" Id="_locales_he.pak_a8bd7d8a_417b_48bd_b3cb_23f6af85e8ea" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\he.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_hi.pak_07fe3809_9772_4358_93ac_2eff5224d15a" Guid="f18a06e2-a232-4da6-a063-bccd0f01a470" Win64="no">
+                <File Name="hi.pak" Id="_locales_hi.pak_07fe3809_9772_4358_93ac_2eff5224d15a" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\hi.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_hr.pak_a59f29fc_0fdd_43ab_8815_8666cb7930e3" Guid="def00c3c-53d0-4443-b3c3-b02571f6a929" Win64="no">
+                <File Name="hr.pak" Id="_locales_hr.pak_a59f29fc_0fdd_43ab_8815_8666cb7930e3" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\hr.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_hu.pak_60650c34_0b6d_41fb_87fc_464c163bf40f" Guid="9ff26475-f080-47fb-b69d-02c255154f3f" Win64="no">
+                <File Name="hu.pak" Id="_locales_hu.pak_60650c34_0b6d_41fb_87fc_464c163bf40f" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\hu.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_id.pak_20dc35ae_7ae5_45ea_b863_e68a12f9c16f" Guid="b97ba966-a722-42c4-94ba-b124ad919f5d" Win64="no">
+                <File Name="id.pak" Id="_locales_id.pak_20dc35ae_7ae5_45ea_b863_e68a12f9c16f" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\id.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_it.pak_664892cc_c941_4924_a7ce_cf5a9a3b472f" Guid="7315419a-751e-439b-b9c3-723b8c6cb293" Win64="no">
+                <File Name="it.pak" Id="_locales_it.pak_664892cc_c941_4924_a7ce_cf5a9a3b472f" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\it.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ja.pak_a51f9a25_78d1_4460_a3e3_25016a74341f" Guid="8a4f0837-9eed-4de9-ba32-703d5aa0ded0" Win64="no">
+                <File Name="ja.pak" Id="_locales_ja.pak_a51f9a25_78d1_4460_a3e3_25016a74341f" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ja.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_kn.pak_a13bd191_8afd_4522_97f8_0a9abfe3206e" Guid="a713f269-12a7-4935-b96d-d529e2a4074a" Win64="no">
+                <File Name="kn.pak" Id="_locales_kn.pak_a13bd191_8afd_4522_97f8_0a9abfe3206e" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\kn.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ko.pak_79b255f1_1cbd_48c5_bcb2_a66a77b0ae97" Guid="bcca8995-7295-403f-a240-b887843031cf" Win64="no">
+                <File Name="ko.pak" Id="_locales_ko.pak_79b255f1_1cbd_48c5_bcb2_a66a77b0ae97" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ko.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_lt.pak_308c1f9f_7455_48b5_a840_d6c79c0ecaf1" Guid="85d75d0f-dd47-45bf-8d2b-4fbf055b6edc" Win64="no">
+                <File Name="lt.pak" Id="_locales_lt.pak_308c1f9f_7455_48b5_a840_d6c79c0ecaf1" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\lt.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_lv.pak_8dcd0bd1_05a2_4f05_be0e_67c88c0f9930" Guid="f954a3aa-c8a6-49f3-b579-80a0969b9679" Win64="no">
+                <File Name="lv.pak" Id="_locales_lv.pak_8dcd0bd1_05a2_4f05_be0e_67c88c0f9930" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\lv.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ml.pak_7da17e2f_f8f6_49e4_ae8b_d9904a9f9635" Guid="5bd4491d-c6cc-4ada-9edd-b530615239f7" Win64="no">
+                <File Name="ml.pak" Id="_locales_ml.pak_7da17e2f_f8f6_49e4_ae8b_d9904a9f9635" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ml.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_mr.pak_ca70f98c_471d_41c7_af62_c7d6784ea24e" Guid="8e045ea5-fcda-42e5-8aac-24d187963f83" Win64="no">
+                <File Name="mr.pak" Id="_locales_mr.pak_ca70f98c_471d_41c7_af62_c7d6784ea24e" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\mr.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ms.pak_7bb61a9f_d44b_4e60_9e42_2622f154fb26" Guid="997d80d3-bfa6-4c1f-838a-34844d6192d0" Win64="no">
+                <File Name="ms.pak" Id="_locales_ms.pak_7bb61a9f_d44b_4e60_9e42_2622f154fb26" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ms.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_nb.pak_f094ce2d_7e3f_4e45_b513_de479b051744" Guid="80f7b5c7-54c3-41ff-ae1d-3bfd0c441f69" Win64="no">
+                <File Name="nb.pak" Id="_locales_nb.pak_f094ce2d_7e3f_4e45_b513_de479b051744" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\nb.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_nl.pak_c673b724_61a8_4813_ace8_be3370a254b9" Guid="bcf80320-ff5e-4cb8-846e-66eb39efd5b1" Win64="no">
+                <File Name="nl.pak" Id="_locales_nl.pak_c673b724_61a8_4813_ace8_be3370a254b9" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\nl.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_pl.pak_4a08d0be_1625_467a_9bbe_bb132bfe6d23" Guid="d1e3a934-e801-4a13-861d-7804929553d6" Win64="no">
+                <File Name="pl.pak" Id="_locales_pl.pak_4a08d0be_1625_467a_9bbe_bb132bfe6d23" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\pl.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_pt_BR.pak_206fdd62_84a1_47e1_8fe8_54725b78658d" Guid="62b274f5-e954-41c5-bb5d-616d5d613ce5" Win64="no">
+                <File Name="pt-BR.pak" Id="_locales_pt_BR.pak_206fdd62_84a1_47e1_8fe8_54725b78658d" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\pt-BR.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_pt_PT.pak_518e4b9c_46f3_48d8_9493_51619a068968" Guid="5e214771-0491-4edc-ab12-8f66e9dc301b" Win64="no">
+                <File Name="pt-PT.pak" Id="_locales_pt_PT.pak_518e4b9c_46f3_48d8_9493_51619a068968" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\pt-PT.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ro.pak_dc17ed15_309c_4212_a6a5_0ebc7804c352" Guid="105e9e8b-2b85-4c4c-853d-53ac1759da96" Win64="no">
+                <File Name="ro.pak" Id="_locales_ro.pak_dc17ed15_309c_4212_a6a5_0ebc7804c352" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ro.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ru.pak_44546ba9_4bc6_4c1a_93c1_6ca97fd12151" Guid="3ec33ad0-8138-4c64-b11f-cc158c7aa733" Win64="no">
+                <File Name="ru.pak" Id="_locales_ru.pak_44546ba9_4bc6_4c1a_93c1_6ca97fd12151" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ru.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_sk.pak_6db5b216_49b8_42b7_9c7d_f845075ae480" Guid="bdc2c122-5022-4d9a-8484-41c8bd909408" Win64="no">
+                <File Name="sk.pak" Id="_locales_sk.pak_6db5b216_49b8_42b7_9c7d_f845075ae480" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\sk.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_sl.pak_25043d1d_d12e_4296_9325_df59484094f8" Guid="4e054dcd-3d63-4200-9732-5938c6aa067f" Win64="no">
+                <File Name="sl.pak" Id="_locales_sl.pak_25043d1d_d12e_4296_9325_df59484094f8" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\sl.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_sr.pak_066b2a51_7ab7_4fac_a86f_59f4f1495ad4" Guid="5f52f601-48d4-420e-91a3-a3b275ce07ad" Win64="no">
+                <File Name="sr.pak" Id="_locales_sr.pak_066b2a51_7ab7_4fac_a86f_59f4f1495ad4" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\sr.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_sv.pak_912d2663_45c1_4a4a_92ae_ed8ed5fdf4eb" Guid="fe2a483a-8bcc-4e99-b8da-83d0d41db81c" Win64="no">
+                <File Name="sv.pak" Id="_locales_sv.pak_912d2663_45c1_4a4a_92ae_ed8ed5fdf4eb" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\sv.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_sw.pak_8f501294_7ead_4778_9bf2_54b8ede7a40f" Guid="8d2b5ec4-6d71-472e-b8b5-df0398201605" Win64="no">
+                <File Name="sw.pak" Id="_locales_sw.pak_8f501294_7ead_4778_9bf2_54b8ede7a40f" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\sw.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_ta.pak_40c4bb35_8a68_48c9_b92d_23961e8badcd" Guid="853daf30-467a-4d7b-93b9-65e71133b333" Win64="no">
+                <File Name="ta.pak" Id="_locales_ta.pak_40c4bb35_8a68_48c9_b92d_23961e8badcd" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\ta.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_te.pak_f5e82682_9892_4192_ac0c_bdaf5e7280f2" Guid="98d884d2-c31e-4171-9466-36464eeaa322" Win64="no">
+                <File Name="te.pak" Id="_locales_te.pak_f5e82682_9892_4192_ac0c_bdaf5e7280f2" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\te.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_th.pak_cc2fcd6e_6bdd_45eb_85ca_9e68b8b9fefe" Guid="e902b7be-c6d1-46f5-a3d6-b470ddf92de4" Win64="no">
+                <File Name="th.pak" Id="_locales_th.pak_cc2fcd6e_6bdd_45eb_85ca_9e68b8b9fefe" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\th.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_tr.pak_9ac541fe_72ca_4b23_99f9_591af3d6e005" Guid="1bcd9974-fdf4-4295-a6a9-1dee6eb6d1a8" Win64="no">
+                <File Name="tr.pak" Id="_locales_tr.pak_9ac541fe_72ca_4b23_99f9_591af3d6e005" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\tr.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_uk.pak_fc186d5c_64c4_4df9_851b_ea8df42daee4" Guid="db7642e1-e805-40cb-b86b-b3ba73e1c084" Win64="no">
+                <File Name="uk.pak" Id="_locales_uk.pak_fc186d5c_64c4_4df9_851b_ea8df42daee4" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\uk.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_vi.pak_b4479777_8234_411b_a3ca_946522819376" Guid="ae736a1a-6419-4a03-88db-e1818be9aefa" Win64="no">
+                <File Name="vi.pak" Id="_locales_vi.pak_b4479777_8234_411b_a3ca_946522819376" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\vi.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_zh_CN.pak_f005fb78_08a4_4b13_86c0_da9f7642d124" Guid="9d8ff537-d486-4ba4-9756-fb8fa43ee6d6" Win64="no">
+                <File Name="zh-CN.pak" Id="_locales_zh_CN.pak_f005fb78_08a4_4b13_86c0_da9f7642d124" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\zh-CN.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_locales_zh_TW.pak_ee8720ae_26ed_44ac_bb4d_62ab2b47e3bc" Guid="74ac6c77-7ee7-40e9-bfcf-429759be6788" Win64="no">
+                <File Name="zh-TW.pak" Id="_locales_zh_TW.pak_ee8720ae_26ed_44ac_bb4d_62ab2b47e3bc" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\locales\zh-TW.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+            </Directory>
+            <Directory Id="_resources_025cf1e4_81f9_45c2_97f6_a7aaac2d3663" Name="resources">
+              <Component Id="_resources_app.asar_b83d9493_00fe_4cd2_8d4b_d0838f43d3f9" Guid="ee1b7e8d-19d5-4b30-a1ae-397452f1f100" Win64="no">
+                <File Name="app.asar" Id="_resources_app.asar_b83d9493_00fe_4cd2_8d4b_d0838f43d3f9" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\resources\app.asar" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+            </Directory>
+            <Directory Id="_swiftshader_b04733d0_ae78_43fe_b359_e475ce274a88" Name="swiftshader">
+              <Component Id="_swiftshader_libEGL.dll_6fb67ef0_a1d4_4c5a_9a3b_a7b92fa0fa67" Guid="8d5741e8-54e3-45fc-82fd-01687cdc9bf2" Win64="no">
+                <File Name="libEGL.dll" Id="_swiftshader_libEGL.dll_6fb67ef0_a1d4_4c5a_9a3b_a7b92fa0fa67" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\swiftshader\libEGL.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+              <Component Id="_swiftshader_libGLESv2.dll_1317962b_ac4c_4111_937c_5bd630c4c2ce" Guid="71537607-afb6-4032-b9ad-f9819a1413e1" Win64="no">
+                <File Name="libGLESv2.dll" Id="_swiftshader_libGLESv2.dll_1317962b_ac4c_4111_937c_5bd630c4c2ce" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\swiftshader\libGLESv2.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+              </Component>
+            </Directory>            <Component Id="_LICENSE_70feda00_489c_43f0_9b32_8da4cbc88a33" Guid="e9ac2d00-e889-46a8-85ac-2278fb49cc39" Win64="no">
+              <File Name="LICENSE" Id="_LICENSE_70feda00_489c_43f0_9b32_8da4cbc88a33" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\LICENSE" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_LICENSES.chromium.html_8eca6e9d_0cd1_42c7_a2f7_3d3ff55ac9b9" Guid="a44329ee-6817-4a26-9c29-0ea75bc38fbf" Win64="no">
+              <File Name="LICENSES.chromium.html" Id="_LICENSES.chromium.html_8eca6e9d_0cd1_42c7_a2f7_3d3ff55ac9b9" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\LICENSES.chromium.html" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_SC_EDI.exe_f835abd2_a2f9_4f93_8791_f4c52bd5cce0" Guid="a7becb23-f1a5-4aea-a483-55c3414a440e" Win64="no">
+              <File Name="SC-EDI.exe" Id="_SC_EDI.exe_f835abd2_a2f9_4f93_8791_f4c52bd5cce0" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\SC-EDI.exe" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_chrome_100_percent.pak_6c24df9a_8df2_4624_8b65_933bbfa263c0" Guid="4e378029-32c2-40a3-93a4-a00b2e99d9ac" Win64="no">
+              <File Name="chrome_100_percent.pak" Id="_chrome_100_percent.pak_6c24df9a_8df2_4624_8b65_933bbfa263c0" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\chrome_100_percent.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_chrome_200_percent.pak_56fac56f_c4ca_485a_9d58_10469c0781f5" Guid="ffcebbb2-218b-4c2d-b2ad-c551401e8bcc" Win64="no">
+              <File Name="chrome_200_percent.pak" Id="_chrome_200_percent.pak_56fac56f_c4ca_485a_9d58_10469c0781f5" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\chrome_200_percent.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_d3dcompiler_47.dll_e04c4bc1_d217_4683_88b7_e1ccd32370d8" Guid="a223e1a9-960b-4850-a9cb-99acb9aa9e44" Win64="no">
+              <File Name="d3dcompiler_47.dll" Id="_d3dcompiler_47.dll_e04c4bc1_d217_4683_88b7_e1ccd32370d8" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\d3dcompiler_47.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_ffmpeg.dll_db4107dd_e038_4fc8_b2cf_395da255daf5" Guid="6e754177-5014-47b4-9af3-7d640a148857" Win64="no">
+              <File Name="ffmpeg.dll" Id="_ffmpeg.dll_db4107dd_e038_4fc8_b2cf_395da255daf5" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\ffmpeg.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_icudtl.dat_d0c0c260_d014_410d_ada9_b3611cd90b98" Guid="e3020460-5419-4ff5-837e-e37f4a25216c" Win64="no">
+              <File Name="icudtl.dat" Id="_icudtl.dat_d0c0c260_d014_410d_ada9_b3611cd90b98" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\icudtl.dat" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_libEGL.dll_89eb621f_513e_4a73_a1e9_cddfc7fdeff0" Guid="ddf025df-247b-4934-b316-3e566f097eec" Win64="no">
+              <File Name="libEGL.dll" Id="_libEGL.dll_89eb621f_513e_4a73_a1e9_cddfc7fdeff0" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\libEGL.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_libGLESv2.dll_1df1b3b5_490e_477e_9f98_ea05beebe65e" Guid="ecdebae2-0899-4bd8-86bc-05760907fc2e" Win64="no">
+              <File Name="libGLESv2.dll" Id="_libGLESv2.dll_1df1b3b5_490e_477e_9f98_ea05beebe65e" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\libGLESv2.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_resources.pak_63029db2_deda_43a1_aef7_15bd57089a2a" Guid="1a6dacf4-d594-499c-85ab-c1672b947eef" Win64="no">
+              <File Name="resources.pak" Id="_resources.pak_63029db2_deda_43a1_aef7_15bd57089a2a" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\resources.pak" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_snapshot_blob.bin_be4d0c7e_ba96_4443_94d3_a4e51daba77f" Guid="c9ead0e2-8d90-4921-8f9a-35692f526e1a" Win64="no">
+              <File Name="snapshot_blob.bin" Id="_snapshot_blob.bin_be4d0c7e_ba96_4443_94d3_a4e51daba77f" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\snapshot_blob.bin" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_v8_context_snapshot.bin_bf2bcf44_f7ae_401a_a3a8_b7d22ba427a5" Guid="6b3c20fd-9203-435e-a64e-24f63ef58856" Win64="no">
+              <File Name="v8_context_snapshot.bin" Id="_v8_context_snapshot.bin_bf2bcf44_f7ae_401a_a3a8_b7d22ba427a5" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\v8_context_snapshot.bin" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_version_7be1208d_4cb2_4c3f_990f_b9d74116ac73" Guid="ef8e5b43-8bec-409e-a6b3-0a6b886df0dc" Win64="no">
+              <File Name="version" Id="_version_7be1208d_4cb2_4c3f_990f_b9d74116ac73" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\version" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_vk_swiftshader.dll_0a5aaa1e_2dea_4713_a0ca_bc88a3205d21" Guid="8cf1f323-9c36-448c-ae50-d765800d8d9f" Win64="no">
+              <File Name="vk_swiftshader.dll" Id="_vk_swiftshader.dll_0a5aaa1e_2dea_4713_a0ca_bc88a3205d21" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\vk_swiftshader.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_vk_swiftshader_icd.json_07da2fb7_206a_44df_8547_1c4339388adc" Guid="4a2ab96b-71f5-4394-a87a-bd21e2f22d45" Win64="no">
+              <File Name="vk_swiftshader_icd.json" Id="_vk_swiftshader_icd.json_07da2fb7_206a_44df_8547_1c4339388adc" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\vk_swiftshader_icd.json" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+            <Component Id="_vulkan_1.dll_eb0b6776_dd33_4d85_9c91_8722223daa23" Guid="45c02107-1ffd-4709-ba48-628aabd76810" Win64="no">
+              <File Name="vulkan-1.dll" Id="_vulkan_1.dll_eb0b6776_dd33_4d85_9c91_8722223daa23" Source="C:\Users\Aman\Desktop\SMART V1.1\SC-EDI-win32-ia32\vulkan-1.dll" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+            </Component>
+          </Directory>
+          <Component Id="_SC_EDI.exe_68a6f4d3_2f6b_4fce_815f_394f625e1029" Guid="c21ad4ad-d04f-485d-b1cf-c1e93bdac560" Win64="no">
+            <File Name="SC-EDI.exe" Id="_SC_EDI.exe_68a6f4d3_2f6b_4fce_815f_394f625e1029" Source="C:\Users\Aman\AppData\Local\Temp\SC-EDIsI4QCk\SC-EDI.exe" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+          </Component>
+          <Component Id="_.installInfo.json_c4d3a676_b551_4afe_842c_b96bd22a6bb7" Guid="5e053596-a8eb-47fa-8a21-833655febfed" Win64="no">
+            <File Name=".installInfo.json" Id="_.installInfo.json_c4d3a676_b551_4afe_842c_b96bd22a6bb7" Source="C:\Users\Aman\AppData\Local\Temp\.installInfoPl0NWU\.installInfo.json" KeyPath="yes" Checksum="yes" ProcessorArchitecture="x86"/>
+          </Component>
+          <Component Id="RegistryInstallPath" Guid="a7bf348d-0120-43ea-9bb7-2f61468ce83e" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="InstallPath" Type="string" Value="[APPLICATIONROOTDIRECTORY]" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+          <Component Id="UninstallDisplayName" Guid="f11df2e8-0639-46c4-a720-18fb06c70948" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="DisplayName" Type="string" Value="[VisibleProductName]" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+          <Component Id="UninstallPublisher" Guid="206794f4-f910-4d3f-8497-e8f153490884" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="Publisher" Type="string" Value="Our Code World Inc" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+          <Component Id="UninstallDisplayVersion" Guid="8f0d5197-f34f-41cd-91e3-92d2927a3e89" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="DisplayVersion" Type="string" Value="1.0.0" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+          <Component Id="UninstallModifyString" Guid="6403da98-8685-49e2-aab8-30a8b5c37c8e" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="ModifyPath" Type="expandable" Value="MsiExec.exe /I {38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+          <Component Id="UninstallString" Guid="3e097a44-a095-4893-94ae-2f39e367c0ea" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="UninstallString" Type="expandable" Value="MsiExec.exe /X {38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+          <Component Id="UninstallDisplayIcon" Guid="13b51a72-1180-4bf9-b8f1-28951893eec8" Win64="no">
+            <RegistryKey Root="HKMU" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{38E9B0DF-1113-4B5F-A0CE-E416C51B7FA0}.msq" ForceCreateOnInstall="no" ForceDeleteOnUninstall="yes">
+              <RegistryValue Name="DisplayIcon" Type="expandable" Value="[SystemFolder]msiexec.exe" KeyPath="yes"/>
+            </RegistryKey>
+          </Component>
+        </Directory>
+      </Directory>
+
+      <!-- Desktop -->
+      <Directory Id="DesktopFolder" Name="Desktop" />
+
+      <!-- Start Menu -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Our Code World Inc"/>
+      </Directory>
+    </Directory>
+
+    <!-- Step 3: Add app to Start Menu -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="45980497-1e74-4b18-af78-eac1ccc6093d" Win64="no">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="Our Code World Desktop App"
+                  Description="This is a SC-EDI application"
+                  Target="[APPLICATIONROOTDIRECTORY]SC-EDI.exe"
+                  WorkingDirectory="APPLICATIONROOTDIRECTORY">
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="com.squirrel.Our Code World Desktop App.SC-EDI" />
+        </Shortcut>
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU"
+                       Key="Software\Microsoft\Our Code World Desktop App"
+                       Name="installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+   <!-- Step 4: Add app desktop shortcut --> 
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="62a9c1cb-6589-4e3c-8bff-7f809c837869" >
+          <Shortcut Id="MyDesktopShortcut"
+                    Name="Our Code World Desktop App"
+                    Description="This is a SC-EDI application"
+                    Target="[APPLICATIONROOTDIRECTORY]SC-EDI.exe"
+                    WorkingDirectory="APPLICATIONROOTDIRECTORY"/>
+          <RegistryValue Root="HKCU"
+                    Key="Software\Microsoft\Our Code World Desktop App"
+                    Name="installed"
+                    Type="integer"
+                    Value="1"
+                    KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+
+    <!-- Lets cleanup any files that are were not part of the initial install
+    via this MSI. Such as newer versions installed by the auto-updater. -->
+    <DirectoryRef Id="APPLICATIONROOTDIRECTORY">
+      <Component Id="PurgeOnUninstall" Guid="0da7bf61-7d2e-4c9b-b5fb-336579180029" Win64="no">
+        <CreateFolder/>
+        <util:RemoveFolderEx On="uninstall" Property="INSTALLPATH" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Complete" Title="Our Code World Desktop App (1.0.0)" Description="The complete package." Display="expand" Level="1" ConfigurableDirectory="APPLICATIONROOTDIRECTORY">
+      <!-- Step 5: Tell WiX to install the files -->
+      <Feature Id="MainApplication" Title="Main Application" Level="1" Description="The main components to run the applications." >
+        <ComponentRef Id="_locales_am.pak_16ad6542_0a27_423d_acc0_bfdce856b6a4" />
+        <ComponentRef Id="_locales_ar.pak_c7e72979_7512_4aee_b21f_531166dfd31d" />
+        <ComponentRef Id="_locales_bg.pak_f5d32382_21ae_4bb5_a62a_ca09893eb1ca" />
+        <ComponentRef Id="_locales_bn.pak_99dbe8a5_c6bd_424f_a36f_ab56585fdd50" />
+        <ComponentRef Id="_locales_ca.pak_cc50e59e_5cc9_4716_8cdf_b08845f68591" />
+        <ComponentRef Id="_locales_cs.pak_a8388f5f_385a_4bf9_bde3_ca8d93e602e1" />
+        <ComponentRef Id="_locales_da.pak_f90f2084_f2ef_41ad_822a_1b81b61c9030" />
+        <ComponentRef Id="_locales_de.pak_31d96dbe_0231_49a5_b5bd_3f4d495743a4" />
+        <ComponentRef Id="_locales_el.pak_55a46617_e53e_41d6_bfb6_68d3022be655" />
+        <ComponentRef Id="_locales_en_GB.pak_f0dd59ad_5800_4188_95f7_66681076e420" />
+        <ComponentRef Id="_locales_en_US.pak_3b4227e1_a6d8_4c4a_8a05_dee59ad5c270" />
+        <ComponentRef Id="_locales_es_419.pak_03ce4037_20d0_4010_b9c4_bfd4c76794c1" />
+        <ComponentRef Id="_locales_es.pak_ede04574_2964_4db8_bc4a_bea30293a911" />
+        <ComponentRef Id="_locales_et.pak_e3b3d319_4596_469c_ac91_25d78f744ecb" />
+        <ComponentRef Id="_locales_fa.pak_05b23399_7d9d_4256_a40e_7f9c63352401" />
+        <ComponentRef Id="_locales_fi.pak_8ad62581_cadc_4806_972d_71d1be8ce4b3" />
+        <ComponentRef Id="_locales_fil.pak_280f10a3_0344_4290_b786_2934cb2e7aef" />
+        <ComponentRef Id="_locales_fr.pak_eda7070d_dd5f_4327_bd74_19ea6a25a770" />
+        <ComponentRef Id="_locales_gu.pak_419d8c03_923b_4cb9_9560_e2edf4c6799b" />
+        <ComponentRef Id="_locales_he.pak_a8bd7d8a_417b_48bd_b3cb_23f6af85e8ea" />
+        <ComponentRef Id="_locales_hi.pak_07fe3809_9772_4358_93ac_2eff5224d15a" />
+        <ComponentRef Id="_locales_hr.pak_a59f29fc_0fdd_43ab_8815_8666cb7930e3" />
+        <ComponentRef Id="_locales_hu.pak_60650c34_0b6d_41fb_87fc_464c163bf40f" />
+        <ComponentRef Id="_locales_id.pak_20dc35ae_7ae5_45ea_b863_e68a12f9c16f" />
+        <ComponentRef Id="_locales_it.pak_664892cc_c941_4924_a7ce_cf5a9a3b472f" />
+        <ComponentRef Id="_locales_ja.pak_a51f9a25_78d1_4460_a3e3_25016a74341f" />
+        <ComponentRef Id="_locales_kn.pak_a13bd191_8afd_4522_97f8_0a9abfe3206e" />
+        <ComponentRef Id="_locales_ko.pak_79b255f1_1cbd_48c5_bcb2_a66a77b0ae97" />
+        <ComponentRef Id="_locales_lt.pak_308c1f9f_7455_48b5_a840_d6c79c0ecaf1" />
+        <ComponentRef Id="_locales_lv.pak_8dcd0bd1_05a2_4f05_be0e_67c88c0f9930" />
+        <ComponentRef Id="_locales_ml.pak_7da17e2f_f8f6_49e4_ae8b_d9904a9f9635" />
+        <ComponentRef Id="_locales_mr.pak_ca70f98c_471d_41c7_af62_c7d6784ea24e" />
+        <ComponentRef Id="_locales_ms.pak_7bb61a9f_d44b_4e60_9e42_2622f154fb26" />
+        <ComponentRef Id="_locales_nb.pak_f094ce2d_7e3f_4e45_b513_de479b051744" />
+        <ComponentRef Id="_locales_nl.pak_c673b724_61a8_4813_ace8_be3370a254b9" />
+        <ComponentRef Id="_locales_pl.pak_4a08d0be_1625_467a_9bbe_bb132bfe6d23" />
+        <ComponentRef Id="_locales_pt_BR.pak_206fdd62_84a1_47e1_8fe8_54725b78658d" />
+        <ComponentRef Id="_locales_pt_PT.pak_518e4b9c_46f3_48d8_9493_51619a068968" />
+        <ComponentRef Id="_locales_ro.pak_dc17ed15_309c_4212_a6a5_0ebc7804c352" />
+        <ComponentRef Id="_locales_ru.pak_44546ba9_4bc6_4c1a_93c1_6ca97fd12151" />
+        <ComponentRef Id="_locales_sk.pak_6db5b216_49b8_42b7_9c7d_f845075ae480" />
+        <ComponentRef Id="_locales_sl.pak_25043d1d_d12e_4296_9325_df59484094f8" />
+        <ComponentRef Id="_locales_sr.pak_066b2a51_7ab7_4fac_a86f_59f4f1495ad4" />
+        <ComponentRef Id="_locales_sv.pak_912d2663_45c1_4a4a_92ae_ed8ed5fdf4eb" />
+        <ComponentRef Id="_locales_sw.pak_8f501294_7ead_4778_9bf2_54b8ede7a40f" />
+        <ComponentRef Id="_locales_ta.pak_40c4bb35_8a68_48c9_b92d_23961e8badcd" />
+        <ComponentRef Id="_locales_te.pak_f5e82682_9892_4192_ac0c_bdaf5e7280f2" />
+        <ComponentRef Id="_locales_th.pak_cc2fcd6e_6bdd_45eb_85ca_9e68b8b9fefe" />
+        <ComponentRef Id="_locales_tr.pak_9ac541fe_72ca_4b23_99f9_591af3d6e005" />
+        <ComponentRef Id="_locales_uk.pak_fc186d5c_64c4_4df9_851b_ea8df42daee4" />
+        <ComponentRef Id="_locales_vi.pak_b4479777_8234_411b_a3ca_946522819376" />
+        <ComponentRef Id="_locales_zh_CN.pak_f005fb78_08a4_4b13_86c0_da9f7642d124" />
+        <ComponentRef Id="_locales_zh_TW.pak_ee8720ae_26ed_44ac_bb4d_62ab2b47e3bc" />
+        <ComponentRef Id="_resources_app.asar_b83d9493_00fe_4cd2_8d4b_d0838f43d3f9" />
+        <ComponentRef Id="_swiftshader_libEGL.dll_6fb67ef0_a1d4_4c5a_9a3b_a7b92fa0fa67" />
+        <ComponentRef Id="_swiftshader_libGLESv2.dll_1317962b_ac4c_4111_937c_5bd630c4c2ce" />
+        <ComponentRef Id="_LICENSE_70feda00_489c_43f0_9b32_8da4cbc88a33" />
+        <ComponentRef Id="_LICENSES.chromium.html_8eca6e9d_0cd1_42c7_a2f7_3d3ff55ac9b9" />
+        <ComponentRef Id="_SC_EDI.exe_f835abd2_a2f9_4f93_8791_f4c52bd5cce0" />
+        <ComponentRef Id="_chrome_100_percent.pak_6c24df9a_8df2_4624_8b65_933bbfa263c0" />
+        <ComponentRef Id="_chrome_200_percent.pak_56fac56f_c4ca_485a_9d58_10469c0781f5" />
+        <ComponentRef Id="_d3dcompiler_47.dll_e04c4bc1_d217_4683_88b7_e1ccd32370d8" />
+        <ComponentRef Id="_ffmpeg.dll_db4107dd_e038_4fc8_b2cf_395da255daf5" />
+        <ComponentRef Id="_icudtl.dat_d0c0c260_d014_410d_ada9_b3611cd90b98" />
+        <ComponentRef Id="_libEGL.dll_89eb621f_513e_4a73_a1e9_cddfc7fdeff0" />
+        <ComponentRef Id="_libGLESv2.dll_1df1b3b5_490e_477e_9f98_ea05beebe65e" />
+        <ComponentRef Id="_resources.pak_63029db2_deda_43a1_aef7_15bd57089a2a" />
+        <ComponentRef Id="_snapshot_blob.bin_be4d0c7e_ba96_4443_94d3_a4e51daba77f" />
+        <ComponentRef Id="_v8_context_snapshot.bin_bf2bcf44_f7ae_401a_a3a8_b7d22ba427a5" />
+        <ComponentRef Id="_version_7be1208d_4cb2_4c3f_990f_b9d74116ac73" />
+        <ComponentRef Id="_vk_swiftshader.dll_0a5aaa1e_2dea_4713_a0ca_bc88a3205d21" />
+        <ComponentRef Id="_vk_swiftshader_icd.json_07da2fb7_206a_44df_8547_1c4339388adc" />
+        <ComponentRef Id="_vulkan_1.dll_eb0b6776_dd33_4d85_9c91_8722223daa23" />
+        <ComponentRef Id="_SC_EDI.exe_68a6f4d3_2f6b_4fce_815f_394f625e1029" />
+        <ComponentRef Id="_.installInfo.json_c4d3a676_b551_4afe_842c_b96bd22a6bb7" />
+        <ComponentRef Id="RegistryInstallPath" />
+        <ComponentRef Id="UninstallDisplayName" />
+        <ComponentRef Id="UninstallPublisher" />
+        <ComponentRef Id="UninstallDisplayVersion" />
+        <ComponentRef Id="UninstallModifyString" />
+        <ComponentRef Id="UninstallString" />
+        <ComponentRef Id="UninstallDisplayIcon" />
+        <ComponentRef Id="ApplicationShortcut" />
+        <ComponentRef Id="DesktopShortcut" />
+        <ComponentRef Id="PurgeOnUninstall" />
+      </Feature> 
+    </Feature> 
+  </Product>
+</Wix>
